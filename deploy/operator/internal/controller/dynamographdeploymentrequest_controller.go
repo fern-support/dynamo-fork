@@ -1078,27 +1078,6 @@ func (r *DynamoGraphDeploymentRequestReconciler) createProfilingJob(ctx context.
 			},
 		}
 
-		// Apply overrides from spec.overrides.profilingJob if provided
-		if dgdr.Spec.Overrides != nil && dgdr.Spec.Overrides.ProfilingJob != nil {
-			overridePodSpec := dgdr.Spec.Overrides.ProfilingJob.Template.Spec
-			if len(overridePodSpec.Containers) > 0 {
-				profilerContainer.Resources = overridePodSpec.Containers[0].Resources
-				podSpec.Containers[0] = profilerContainer
-			}
-			if len(overridePodSpec.Tolerations) > 0 {
-				podSpec.Tolerations = overridePodSpec.Tolerations
-			}
-			if len(overridePodSpec.NodeSelector) > 0 {
-				podSpec.NodeSelector = overridePodSpec.NodeSelector
-			}
-			if len(overridePodSpec.ImagePullSecrets) > 0 {
-				podSpec.ImagePullSecrets = overridePodSpec.ImagePullSecrets
-			}
-			if overridePodSpec.ServiceAccountName != "" {
-				podSpec.ServiceAccountName = overridePodSpec.ServiceAccountName
-			}
-		}
-
 		job := &batchv1.Job{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      jobName,
@@ -1117,12 +1096,11 @@ func (r *DynamoGraphDeploymentRequestReconciler) createProfilingJob(ctx context.
 			},
 		}
 
-		// Apply job-level overrides
-		if dgdr.Spec.Overrides != nil && dgdr.Spec.Overrides.ProfilingJob != nil {
-			if dgdr.Spec.Overrides.ProfilingJob.BackoffLimit != nil {
-				job.Spec.BackoffLimit = dgdr.Spec.Overrides.ProfilingJob.BackoffLimit
-			}
+		var jobOverrides *batchv1.JobSpec
+		if dgdr.Spec.Overrides != nil {
+			jobOverrides = dgdr.Spec.Overrides.ProfilingJob
 		}
+		applyProfilingJobOverrides(job, jobOverrides)
 
 		return job, false, nil
 	})
